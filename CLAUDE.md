@@ -41,8 +41,16 @@ tests/           # pytest, asyncio_mode=auto, fakeredis + in-memory sqlite
 3. **The AI never refers to itself**: prompts in `honeypot/prompts/*.j2` have explicit prohibitions. When adding page types, keep that style.
 4. **No OpenAI SDK** — `httpx` only. Endpoint always from `settings.llm.endpoint` (OpenAI-compatible).
 5. **LLM error → nginx 500**, never print a traceback or the string "OpenAI".
-6. **Dashboard is read-only** against the DB. No writes from `dashboard/`.
+6. **Dashboard is read-only against the DB**, but it does write to `config.yaml` (via `/settings`) and publishes a `reload` message on the Redis channel `config:reload`.
 7. **Whitelist `testclient`** in the test config — otherwise the middleware blocks ASGI tests.
+
+## Hot-reload mechanism
+
+`shared/config_reload.py` defines `publish_reload(redis)` and `subscribe_reload(redis, on_reload)` over the Redis channel `config:reload`.
+
+- The **dashboard** publishes on this channel after every successful `POST /settings` (and after persisting the YAML via `save_config`).
+- The **honeypot** spawns a `subscribe_reload(...)` background task in its lifespan. On every message it reloads `Settings` from disk, swaps `app.state.settings` atomically, and rebuilds `app.state.llm` via `app.state.llm_factory(new_settings)` (closing the old client). All middleware and routes must therefore read settings via `request.app.state.settings`, **never** capture them in closures at startup.
+- `save_config` is atomic (tempfile + `os.replace`) and rotates the last 10 timestamped backups (`config.yaml.bak-<UTC>`) next to the file. The `secret_key` bytes field is excluded from the YAML dump.
 
 ## Workflow
 

@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block head %}
+<style>
+form.settings { max-width: 760px; }
+form.settings fieldset { border:1px solid #333; margin:12px 0; padding:10px 14px; background:#15151a; }
+form.settings legend { color:#9ad; padding:0 6px; }
+form.settings label { display:block; margin:8px 0 3px; color:#9ad; font-size:12px; }
+form.settings input[type=text], form.settings input[type=password],
+form.settings input[type=number], form.settings textarea {
+  width:100%; background:#0e0e10; color:#ddd; border:1px solid #333;
+  padding:5px 7px; box-sizing:border-box; font-family:monospace; font-size:13px;
+}
+form.settings textarea { min-height:90px; }
+form.settings .row { display:flex; gap:14px; }
+form.settings .row > div { flex:1; }
+form.settings .hint { color:#888; font-size:11px; margin-top:2px; }
+.banner { padding:8px 12px; border-radius:3px; margin-bottom:12px; }
+.banner.ok { background:#22442a; color:#bfb; border:1px solid #2a6; }
+.banner.err { background:#5a2222; color:#fbb; border:1px solid #a44; }
+.banner.info { background:#1d2a44; color:#9bd; border:1px solid #357; }
+form.settings .actions { margin-top:14px; }
+</style>
+{% endblock %}
+{% block content %}
+<h1>Settings</h1>
+
+{% if saved %}<div class="banner ok">Saved. Reload published to honeypot.</div>{% endif %}
+{% if error %}<div class="banner err">Invalid settings: {{ error }}</div>{% endif %}
+{% if last_saved %}<div class="banner info">Last successful save (UTC): {{ last_saved }}</div>{% endif %}
+
+<form class="settings" method="post" action="/settings">
+
+<fieldset><legend>LLM</legend>
+  <label>Endpoint</label>
+  <input type="text" name="llm.endpoint" value="{{ form.llm.endpoint }}" required>
+  <label>API key <span class="hint">(leave blank to keep current)</span></label>
+  <input type="password" name="llm.api_key" value="" placeholder="••••••">
+  <label>Model</label>
+  <input type="text" name="llm.model" value="{{ form.llm.model }}" required>
+  <div class="row">
+    <div>
+      <label>Timeout (s)</label>
+      <input type="number" step="0.1" min="0" name="llm.timeout_s" value="{{ form.llm.timeout_s }}">
+    </div>
+    <div>
+      <label>Max tokens</label>
+      <input type="number" min="1" name="llm.max_tokens" value="{{ form.llm.max_tokens }}">
+    </div>
+  </div>
+  <div class="row">
+    <div>
+      <label>Cost per Mtok in (USD)</label>
+      <input type="number" step="0.001" min="0" name="llm.cost_per_mtok_in" value="{{ form.llm.cost_per_mtok_in }}">
+    </div>
+    <div>
+      <label>Cost per Mtok out (USD)</label>
+      <input type="number" step="0.001" min="0" name="llm.cost_per_mtok_out" value="{{ form.llm.cost_per_mtok_out }}">
+    </div>
+  </div>
+</fieldset>
+
+<fieldset><legend>Honeypot</legend>
+  <label>Port</label>
+  <input type="number" min="1" max="65535" name="honeypot.port" value="{{ form.honeypot.port }}">
+  <label>Secret key file</label>
+  <input type="text" name="honeypot.secret_key_file" value="{{ form.honeypot.secret_key_file }}">
+</fieldset>
+
+<fieldset><legend>Slowdown</legend>
+  <label><input type="checkbox" name="honeypot.slowdown.enabled" {% if form.honeypot.slowdown.enabled %}checked{% endif %}> Enabled</label>
+  <div class="row">
+    <div>
+      <label>Min seconds</label>
+      <input type="number" step="0.1" min="0" name="honeypot.slowdown.min_s" value="{{ form.honeypot.slowdown.min_s }}">
+    </div>
+    <div>
+      <label>Max seconds</label>
+      <input type="number" step="0.1" min="0" name="honeypot.slowdown.max_s" value="{{ form.honeypot.slowdown.max_s }}">
+    </div>
+  </div>
+</fieldset>
+
+<fieldset><legend>Rate limit</legend>
+  <label>Max concurrent per IP</label>
+  <input type="number" min="1" name="honeypot.rate_limit.max_concurrent_per_ip" value="{{ form.honeypot.rate_limit.max_concurrent_per_ip }}">
+  <label><input type="checkbox" name="honeypot.rate_limit.block_on_exceed" {% if form.honeypot.rate_limit.block_on_exceed %}checked{% endif %}> Block on exceed (else queue)</label>
+</fieldset>
+
+<fieldset><legend>Retention</legend>
+  <div class="row">
+    <div>
+      <label>Max IPs <span class="hint">(blank = disabled)</span></label>
+      <input type="number" min="1" name="honeypot.retention.max_ips" value="{{ form.honeypot.retention.max_ips if form.honeypot.retention.max_ips is not none else '' }}">
+    </div>
+    <div>
+      <label>TTL (days) <span class="hint">(blank = disabled)</span></label>
+      <input type="number" min="1" name="honeypot.retention.ttl_days" value="{{ form.honeypot.retention.ttl_days if form.honeypot.retention.ttl_days is not none else '' }}">
+    </div>
+  </div>
+</fieldset>
+
+<fieldset><legend>Fake login</legend>
+  <label>Success ratio (0.0 – 1.0)</label>
+  <input type="number" step="0.01" min="0" max="1" name="honeypot.fake_login.success_ratio" value="{{ form.honeypot.fake_login.success_ratio }}">
+</fieldset>
+
+<fieldset><legend>Whitelist IPs <span class="hint">(one per line; skips slowdown + rate limit)</span></legend>
+  <textarea name="honeypot.whitelist_ips">{{ form.honeypot.whitelist_ips | join('\n') }}</textarea>
+</fieldset>
+
+<fieldset><legend>Bait endpoints <span class="hint">(one per line)</span></legend>
+  <textarea name="honeypot.bait_endpoints">{{ form.honeypot.bait_endpoints | join('\n') }}</textarea>
+</fieldset>
+
+<fieldset><legend>Dashboard basic auth</legend>
+  <label>Username</label>
+  <input type="text" name="dashboard.basic_auth.username" value="{{ form.dashboard.basic_auth.username }}" required>
+  <label>Password <span class="hint">(leave blank to keep current)</span></label>
+  <input type="password" name="dashboard.basic_auth.password" value="" placeholder="••••••">
+  <label>Port</label>
+  <input type="number" min="1" max="65535" name="dashboard.port" value="{{ form.dashboard.port }}">
+</fieldset>
+
+<fieldset><legend>Storage</legend>
+  <label>SQLite path</label>
+  <input type="text" name="storage.sqlite_path" value="{{ form.storage.sqlite_path }}">
+  <label>Redis URL</label>
+  <input type="text" name="storage.redis_url" value="{{ form.storage.redis_url }}">
+</fieldset>
+
+<div class="actions">
+  <button type="submit">Save and reload</button>
+</div>
+</form>
+{% endblock %}

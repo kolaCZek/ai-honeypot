@@ -1,11 +1,20 @@
-"""Dashboard routes: live feed, IP detail, baits, stats, metrics."""
+"""Dashboard routes: live feed, IP detail, baits, stats, metrics, settings."""
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urlsplit
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import RedirectResponse
+from pydantic import ValidationError
 from sqlalchemy import desc, func, select
 
+from shared.config import (
+    BasicAuthConfig, DashboardConfig, FakeLoginConfig, HoneypotConfig,
+    LLMConfig, RateLimitConfig, RetentionConfig, Settings, SlowdownConfig,
+    StorageConfig, load_config, save_config,
+)
+from shared.config_reload import publish_reload
 from shared.models import CredentialAttempt, IPUniverse, LinkEdge, Page, RequestLog
 
 from .auth import require_basic_auth
@@ -178,3 +187,162 @@ async def metrics(request: Request, _user: str = Depends(require_basic_auth)):
     async with _factory(request)() as s:
         body = await build_metrics(s, _settings(request))
     return Response(content=body, media_type="text/plain; version=0.0.4; charset=utf-8")
+
+
+# ---- Settings editor -------------------------------------------------------
+
+def _check_referer(request: Request) -> None:
+    """Simple CSRF defense: require a same-origin Referer on state-changing
+    requests. We rely on Referer (rather than a signed token) because the
+    dashboard already sits behind HTTP Basic auth and has no session cookie
+    to bind a token to. Browsers always send Referer on form POSTs to the
+    same origin; bots replaying a stolen cookie won't have it from the
+    dashboard URL.
+    """
+    ref = request.headers.get("referer", "")
+    if not ref:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="missing referer")
+    try:
+        ref_host = urlsplit(ref).netloc
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="bad referer")
+    host = request.headers.get("host", "")
+    if not ref_host or ref_host != host:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="cross-origin referer")
+
+
+def _settings_to_form(s: Settings) -> dict:
+    """Project a Settings into the dict shape the template expects."""
+    return {
+        "llm": s.llm.model_dump(),
+        "honeypot": s.honeypot.model_dump(),
+        "dashboard": s.dashboard.model_dump(),
+        "storage": s.storage.model_dump(),
+    }
+
+
+def _split_lines(value: str) -> list[str]:
+    return [line.strip() for line in (value or "").splitlines() if line.strip()]
+
+
+def _parse_opt_int(value: str | None) -> int | None:
+    if value is None:
+        return None
+    v = value.strip()
+    if not v:
+        return None
+    return int(v)
+
+
+async def _build_settings_from_form(request: Request, current: Settings) -> Settings:
+    form = await request.form()
+
+    def g(name: str, default: str = "") -> str:
+        v = form.get(name)
+        return v if isinstance(v, str) else default
+
+    # "Leave blank to keep" secrets.
+    api_key = g("llm.api_key").strip() or current.llm.api_key
+    basic_pw = g("dashboard.basic_auth.password").strip() or current.dashboard.basic_auth.password
+
+    llm = LLMConfig(
+        endpoint=g("llm.endpoint"),
+        api_key=api_key,
+        model=g("llm.model"),
+        timeout_s=float(g("llm.timeout_s") or current.llm.timeout_s),
+        max_tokens=int(g("llm.max_tokens") or current.llm.max_tokens),
+        cost_per_mtok_in=float(g("llm.cost_per_mtok_in") or 0),
+        cost_per_mtok_out=float(g("llm.cost_per_mtok_out") or 0),
+    )
+    slowdown = SlowdownConfig(
+        enabled=g("honeypot.slowdown.enabled") == "on",
+        min_s=float(g("honeypot.slowdown.min_s") or 0),
+        max_s=float(g("honeypot.slowdown.max_s") or 0),
+    )
+    rate_limit = RateLimitConfig(
+        max_concurrent_per_ip=int(g("honeypot.rate_limit.max_concurrent_per_ip") or 1),
+        block_on_exceed=g("honeypot.rate_limit.block_on_exceed") == "on",
+    )
+    retention = RetentionConfig(
+        max_ips=_parse_opt_int(g("honeypot.retention.max_ips")),
+        ttl_days=_parse_opt_int(g("honeypot.retention.ttl_days")),
+    )
+    fake_login = FakeLoginConfig(
+        success_ratio=float(g("honeypot.fake_login.success_ratio") or 0),
+    )
+    honeypot = HoneypotConfig(
+        port=int(g("honeypot.port") or current.honeypot.port),
+        slowdown=slowdown,
+        rate_limit=rate_limit,
+        retention=retention,
+        whitelist_ips=_split_lines(g("honeypot.whitelist_ips")),
+        bait_endpoints=_split_lines(g("honeypot.bait_endpoints")),
+        fake_login=fake_login,
+        secret_key_file=g("honeypot.secret_key_file") or current.honeypot.secret_key_file,
+    )
+    dashboard = DashboardConfig(
+        port=int(g("dashboard.port") or current.dashboard.port),
+        basic_auth=BasicAuthConfig(
+            username=g("dashboard.basic_auth.username"),
+            password=basic_pw,
+        ),
+    )
+    storage = StorageConfig(
+        sqlite_path=g("storage.sqlite_path") or current.storage.sqlite_path,
+        redis_url=g("storage.redis_url") or current.storage.redis_url,
+    )
+    return Settings(
+        llm=llm, honeypot=honeypot, dashboard=dashboard, storage=storage,
+        secret_key=current.secret_key,
+    )
+
+
+@router.get("/settings")
+async def settings_get(request: Request, _user: str = Depends(require_basic_auth),
+                       saved: int = 0):
+    s = _settings(request)
+    last_saved = getattr(request.app.state, "settings_last_saved", None)
+    return _templates(request).TemplateResponse(request, "settings.html", {
+        "form": _settings_to_form(s),
+        "saved": bool(saved),
+        "last_saved": last_saved,
+        "error": None,
+    })
+
+
+@router.post("/settings")
+async def settings_post(request: Request, _user: str = Depends(require_basic_auth)):
+    _check_referer(request)
+    current = _settings(request)
+    try:
+        new_settings = await _build_settings_from_form(request, current)
+    except (ValidationError, ValueError) as e:
+        return _templates(request).TemplateResponse(request, "settings.html", {
+            "form": _settings_to_form(current),
+            "saved": False,
+            "last_saved": getattr(request.app.state, "settings_last_saved", None),
+            "error": str(e),
+        }, status_code=400)
+
+    path = getattr(request.app.state, "config_path", None)
+    if not path:
+        raise HTTPException(status_code=500, detail="config_path not set")
+    save_config(new_settings, path)
+
+    # Reload locally too (picks up secret_key bootstrap if needed).
+    reloaded = load_config(path)
+    request.app.state.settings = reloaded
+    now = datetime.now(timezone.utc)
+    request.app.state.settings_last_saved = now.isoformat()
+
+    rds = getattr(request.app.state, "redis", None)
+    if rds is not None:
+        try:
+            await publish_reload(rds)
+        except Exception:
+            # Reload locally still succeeded; the honeypot will pick up
+            # changes on its next restart even if pub/sub failed.
+            pass
+
+    return RedirectResponse(url="/settings?saved=1",
+                            status_code=status.HTTP_303_SEE_OTHER)

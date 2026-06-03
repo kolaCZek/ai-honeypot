@@ -11,6 +11,7 @@ from fastapi import FastAPI, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from shared.config import Settings, load_config
+from shared.config_reload import subscribe_reload
 from shared.db import init_db, make_engine, make_session_factory
 from shared.llm import LLMClient
 from shared.retention import sweep_retention
@@ -83,17 +84,41 @@ async def lifespan(app: FastAPI):
         )
 
     if not hasattr(app.state, "llm"):
-        app.state.llm = LLMClient(settings)
+        # Factory used both at startup and on config:reload to rebuild.
+        if not hasattr(app.state, "llm_factory"):
+            app.state.llm_factory = lambda s: LLMClient(s)
+        app.state.llm = app.state.llm_factory(settings)
+    elif not hasattr(app.state, "llm_factory"):
+        # Tests may inject a custom LLM; keep a no-op factory so reload
+        # does not blow it away.
+        existing = app.state.llm
+        app.state.llm_factory = lambda s, _e=existing: _e
 
+    async def _on_reload():
+        # Reload settings from disk and swap atomically. Rebuild LLM via
+        # factory so endpoint/key/model changes apply without restart.
+        new_settings = load_config(_resolve_config_path())
+        old_llm = getattr(app.state, "llm", None)
+        new_llm = app.state.llm_factory(new_settings)
+        app.state.settings = new_settings
+        app.state.llm = new_llm
+        if old_llm is not None and old_llm is not new_llm:
+            try:
+                await old_llm.aclose()
+            except Exception:
+                pass
+
+    reload_task = asyncio.create_task(subscribe_reload(app.state.redis, _on_reload))
     sweeper = asyncio.create_task(_retention_loop(app))
     try:
         yield
     finally:
-        sweeper.cancel()
-        try:
-            await sweeper
-        except (asyncio.CancelledError, Exception):
-            pass
+        for t in (sweeper, reload_task):
+            t.cancel()
+            try:
+                await t
+            except (asyncio.CancelledError, Exception):
+                pass
         try:
             await app.state.llm.aclose()
         except Exception:
