@@ -1,5 +1,7 @@
 # AI Honeypot 🕸️
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/J3J892H97)
+
 Self-hosted AI-driven honeypot web. Every source IP gets its own "universe" of LLM-generated pages — a fog-of-war game for scrapers, scanner kiddies, and script bots. The goal is to waste their time, poison their databases with nonsense, and collect stats on who's attacking and how.
 
 ## How it works
