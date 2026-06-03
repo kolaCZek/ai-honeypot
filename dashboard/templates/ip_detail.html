@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}IP {{ summary.ip }}{% endblock %}
+{% block head %}
+{% if mermaid %}<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<script>document.addEventListener('DOMContentLoaded',()=>mermaid.initialize({startOnLoad:true,theme:'dark'}));</script>
+{% endif %}
+{% endblock %}
+{% block content %}
+<h1>IP {{ summary.ip }}</h1>
+<div class="kv"><span>first seen:</span>{{ summary.first_seen }}</div>
+<div class="kv"><span>last seen:</span>{{ summary.last_seen }}</div>
+<div class="kv"><span>country:</span>{{ summary.country or '?' }}</div>
+<div class="kv"><span>UA:</span>{{ summary.ua or '?' }}</div>
+<div class="kv"><span>requests:</span>{{ summary.requests }}</div>
+<div class="kv"><span>tokens in/out:</span>{{ summary.tokens_in }} / {{ summary.tokens_out }}</div>
+<div class="kv"><span>est. cost USD:</span>{{ '%.6f' % summary.cost_usd }}</div>
+
+<h2>Navigation graph</h2>
+{% if mermaid %}
+<div class="mermaid">
+{{ mermaid }}
+</div>
+{% else %}
+<p>(no edges)</p>
+{% endif %}
+
+<h2>Pages visited</h2>
+<table>
+<thead><tr><th>generated_at</th><th>path</th><th>content-type</th><th>tok in/out</th></tr></thead>
+<tbody>
+{% for p in pages %}
+<tr><td>{{ p.generated_at.strftime('%H:%M:%S') }}</td><td>{{ p.path }}</td><td>{{ p.content_type }}</td><td>{{ p.tokens_in }}/{{ p.tokens_out }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+
+<h2>Credential attempts</h2>
+<table>
+<thead><tr><th>ts</th><th>path</th><th>username</th><th>password</th></tr></thead>
+<tbody>
+{% for c in creds %}
+<tr><td>{{ c.ts.strftime('%H:%M:%S') }}</td><td>{{ c.path }}</td><td>{{ c.username or '' }}</td><td>{{ c.password or '' }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+{% endblock %}

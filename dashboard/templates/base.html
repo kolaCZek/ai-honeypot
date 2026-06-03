@@ -1,0 +1,37 @@
+<!doctype html>
+<html><head>
+<meta charset="utf-8">
+<title>Honeypot Dashboard - {% block title %}{% endblock %}</title>
+{% block head %}{% endblock %}
+<style>
+body{background:#0e0e10;color:#ddd;font-family:monospace;margin:0;padding:0}
+nav{background:#1a1a1f;padding:10px 20px;border-bottom:1px solid #333}
+nav a{color:#7af;margin-right:20px;text-decoration:none}
+nav a:hover{color:#fff}
+main{padding:20px}
+table{border-collapse:collapse;width:100%;background:#15151a}
+th,td{padding:6px 10px;border-bottom:1px solid #2a2a32;text-align:left;font-size:13px}
+th{background:#1d1d24;color:#9ad}
+tr:hover{background:#1a1a22}
+a{color:#7af}
+.badge{padding:2px 6px;border-radius:3px;font-size:11px}
+.bait{background:#5a2222;color:#fbb}
+.gen{background:#22442a;color:#bfb}
+.bot{background:#444;color:#ccc}
+h1,h2{color:#fff}
+.kv{margin:6px 0}
+.kv span{color:#9ad;margin-right:8px}
+form input{background:#15151a;color:#ddd;border:1px solid #333;padding:4px;margin-right:6px}
+form button{background:#234;color:#fff;border:1px solid #456;padding:4px 10px;cursor:pointer}
+</style>
+</head><body>
+<nav>
+  <a href="/">Live</a>
+  <a href="/baits">Baits</a>
+  <a href="/stats">Stats</a>
+  <a href="/metrics">Metrics</a>
+</nav>
+<main>
+{% block content %}{% endblock %}
+</main>
+</body></html>

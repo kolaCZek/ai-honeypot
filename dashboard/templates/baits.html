@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Baits{% endblock %}
+{% block content %}
+<h1>Top bait endpoints</h1>
+<table>
+<thead><tr><th>path</th><th>hits</th><th>unique IPs</th></tr></thead>
+<tbody>
+{% for it in items %}
+<tr><td>{{ it.path }}</td><td>{{ it.count }}</td><td>{{ it.unique_ips }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+{% endblock %}

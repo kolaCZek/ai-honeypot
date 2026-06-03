@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Live{% endblock %}
+{% block head %}<meta http-equiv="refresh" content="5">{% endblock %}
+{% block content %}
+<h1>Live feed</h1>
+<form method="get">
+  <input name="ip" placeholder="ip" value="{{ filters.ip }}">
+  <input name="country" placeholder="country" value="{{ filters.country }}">
+  <input name="ua" placeholder="UA contains" value="{{ filters.ua }}">
+  <label><input type="checkbox" name="bait_only" value="true" {% if filters.bait_only %}checked{% endif %}> bait only</label>
+  <button>filter</button>
+</form>
+<table>
+<thead><tr><th>ts</th><th>ip</th><th>cc</th><th>method</th><th>path</th><th>status</th><th>flags</th><th>UA</th></tr></thead>
+<tbody>
+{% for it in items %}
+<tr>
+  <td>{{ it.ts.strftime('%H:%M:%S') if it.ts else '' }}</td>
+  <td><a href="/ip/{{ it.ip }}">{{ it.ip }}</a></td>
+  <td>{{ it.country or '' }}</td>
+  <td>{{ it.method }}</td>
+  <td>{{ it.path }}</td>
+  <td>{{ it.status }}</td>
+  <td>
+    {% if it.generated %}<span class="badge gen">GEN</span>{% endif %}
+    {% if it.bait %}<span class="badge bait">BAIT</span>{% endif %}
+    {% if 'bot' in (it.ua or '')|lower %}<span class="badge bot">BOT</span>{% endif %}
+  </td>
+  <td>{{ it.ua[:60] }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+{% endblock %}

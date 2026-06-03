@@ -1,0 +1,41 @@
+# Fictional landing-page scenarios. Picked at random per IP.
+# Each: name, business (template with {company}), suggested_links.
+- name: "Internal Ops Portal"
+  business: "{company} internal operations and logistics dashboard"
+  suggested_links: ["/dashboard", "/users", "/reports", "/settings", "/admin", "/api/v1/status"]
+
+- name: "Dev Staging"
+  business: "{company} engineering staging environment"
+  suggested_links: ["/projects", "/builds", "/jenkins", "/git", "/api/keys", "/.env"]
+
+- name: "Ecommerce Admin"
+  business: "{company} online store administration backend"
+  suggested_links: ["/orders", "/products", "/customers", "/discounts", "/reports/sales", "/admin"]
+
+- name: "SaaS Dashboard"
+  business: "{company} customer-facing SaaS analytics dashboard"
+  suggested_links: ["/dashboard", "/teams", "/billing", "/api/v1/metrics", "/settings/api", "/login"]
+
+- name: "CMS"
+  business: "{company} content management system"
+  suggested_links: ["/admin", "/posts", "/pages", "/media", "/users", "/wp-admin"]
+
+- name: "Billing System"
+  business: "{company} subscription billing and invoicing portal"
+  suggested_links: ["/invoices", "/customers", "/payments", "/plans", "/reports/revenue", "/admin"]
+
+- name: "Monitoring Tool"
+  business: "{company} infrastructure monitoring and alerting console"
+  suggested_links: ["/dashboards", "/alerts", "/hosts", "/services", "/api/v1/metrics", "/login"]
+
+- name: "File Share"
+  business: "{company} internal secure file-sharing service"
+  suggested_links: ["/files", "/shared", "/upload", "/users", "/settings", "/admin"]
+
+- name: "HR System"
+  business: "{company} human resources self-service portal"
+  suggested_links: ["/employees", "/payroll", "/leave", "/reviews", "/onboarding", "/admin"]
+
+- name: "CRM"
+  business: "{company} customer relationship management platform"
+  suggested_links: ["/leads", "/contacts", "/accounts", "/opportunities", "/reports", "/settings"]

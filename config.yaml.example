@@ -1,0 +1,52 @@
+llm:
+  endpoint: "https://api.openai.com/v1"
+  api_key: "sk-CHANGE-ME"
+  model: "gpt-4o-mini"
+  timeout_s: 30
+  max_tokens: 1500
+  # Cost estimation (USD per 1M tokens). Used by dashboard /stats.
+  cost_per_mtok_in: 0.15
+  cost_per_mtok_out: 0.60
+
+honeypot:
+  port: 8888
+  slowdown:
+    enabled: true
+    min_s: 10
+    max_s: 30
+  rate_limit:
+    max_concurrent_per_ip: 3
+    block_on_exceed: false   # if true returns 429; else waits for a free slot
+  retention:
+    max_ips: 20              # null disables LRU
+    ttl_days: 2              # null disables TTL
+  whitelist_ips: ["127.0.0.1", "::1"]   # skip slowdown & rate limit
+  bait_endpoints:
+    - /admin
+    - /login
+    - /wp-admin
+    - /wp-login.php
+    - /.env
+    - /.git/config
+    - /backup.sql
+    - /api/users
+    - /api/v1/users
+    - /phpmyadmin
+    - /config.json
+    - /.aws/credentials
+    - /server-status
+    - /debug
+    - /api/keys
+  fake_login:
+    success_ratio: 0.75
+  secret_key_file: /data/secret.key   # auto-generated 32B if missing
+
+dashboard:
+  port: 8080
+  basic_auth:
+    username: admin
+    password: change-me
+
+storage:
+  sqlite_path: /data/honeypot.db
+  redis_url: redis://redis:6379/0

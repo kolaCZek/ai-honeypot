@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Stats{% endblock %}
+{% block content %}
+<h1>Global stats</h1>
+<div class="kv"><span>Total IPs (lifetime):</span>{{ data.total_ips }}</div>
+<div class="kv"><span>Active IPs (last 24h):</span>{{ data.active_24h }}</div>
+<div class="kv"><span>Total pages generated:</span>{{ data.total_pages }}</div>
+<div class="kv"><span>LLM tokens in:</span>{{ data.tokens_in }}</div>
+<div class="kv"><span>LLM tokens out:</span>{{ data.tokens_out }}</div>
+<div class="kv"><span>Estimated cost USD:</span>{{ '%.6f' % data.cost_usd }}</div>
+<div class="kv"><span>Bots / Non-bots:</span>{{ data.bots }} / {{ data.non_bots }}</div>
+
+<h2>Top countries</h2>
+<table><thead><tr><th>country</th><th>IPs</th></tr></thead><tbody>
+{% for c in data.countries %}<tr><td>{{ c.country }}</td><td>{{ c.count }}</td></tr>{% endfor %}
+</tbody></table>
+
+<h2>Top User-Agents</h2>
+<table><thead><tr><th>UA</th><th>IPs</th></tr></thead><tbody>
+{% for u in data.uas %}<tr><td>{{ u.ua }}</td><td>{{ u.count }}</td></tr>{% endfor %}
+</tbody></table>
+{% endblock %}
