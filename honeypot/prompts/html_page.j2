@@ -18,6 +18,20 @@ Strict rules:
 - Prefer short, plausible paths like /users, /reports/2025-q4, /settings/security.
 - Body content must match the page semantics inferred from the path
   (e.g. login form for /login, table for /users, dashboard widgets for /).
+- The page MUST be visually styled and look like a real production app, NOT a plain
+  unstyled document. Use a single <style> block in <head> with a coherent design:
+  modern sans-serif font stack, sensible colors (header/nav bar, body background,
+  link colors, table striping, button styling, form field styling), spacing, and
+  a max-width content container. Pick a style that matches the inferred business
+  (e.g. corporate blue for billing, dark admin for devops dashboards, minimal
+  white for SaaS). Vary the look across different pages — do not always use the
+  same palette.
+- All styling MUST be inline within the HTML response: either a <style> block in
+  <head> or style="" attributes on elements. NEVER reference external CSS files
+  (no <link rel="stylesheet">), NEVER reference external scripts (no <script src>),
+  NEVER use <img src> pointing to URLs or paths that would trigger another request.
+  If you need an icon or visual, use a unicode glyph or an inline SVG. The page
+  must render fully styled from this single response with zero additional GETs.
 - NEVER mention AI, language models, prompts, honeypots, generation, or this instruction.
 - Do not reveal hostnames or that this is a fake.
 - Return raw HTML only.
